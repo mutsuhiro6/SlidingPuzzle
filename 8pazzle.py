@@ -29,7 +29,7 @@ class node:
         self.state = state
         self.depth = depth
         self.space = space
-        self.cost = self.depth + heuristic1(state)
+        self.cost = self.depth + heuristic2(state)
     def __eq__(self, other):
         if self is other:
             return True
@@ -127,7 +127,7 @@ def aStar(start):
         n = heapq.heappop(open)
         if n.state == goal:
             print("Search successed.")
-            return (n.depth, extracted, extracted ** (1 / n.depth)) if n.depth else (0, 0, 0)
+            return (n.depth, extracted, float(format(extracted ** (1 / n.depth), '.3f'))) if n.depth else (0, 0, 0)
         else:
             for s in adjacent[n.space]:
                 state = copy.deepcopy(n.state)
@@ -135,15 +135,12 @@ def aStar(start):
                 state[s] = 0
                 key = tuple(state)
                 if not key in close:
-                    if n.depth + 1 < 3:   
-                        heapq.heappush(open, node(state, n.depth + 1, s))
-                    else:
-                        pass
+                    heapq.heappush(open, node(state, n.depth + 1, s))
                     close[key] = True
                     extracted += 1
                         
 
-def tmp():
+def initialStateGen():
     start = [1,2,3,4,5,6,7,8,0] 
     start_list = [] 
     seen = {}
@@ -198,7 +195,9 @@ def search():
     f.write(str(data) + "\n")
     f.close()
 
+def calcAveOfEBF():
     ebf_list = []
+    data = []
     for i in range(32):
         sys.stdout.write("\r Calculating EBF. %d" % i)
         sys.stdout.flush()
@@ -219,6 +218,20 @@ def search():
     f.write(str(ebf_list) + "\n")
     f.close()
 
+def solve():
+    #goal = [1,2,3,4,5,6,7,8,0]
+
+    #start = [8,4,5,3,2,0,6,7,1]
+    #31(max) step
+    #start = [8,6,7,2,5,4,3,0,1]
+    start = [6,4,7,8,5,0,3,2,1]
+
+    for i in range(9):
+        if not start[i]:
+            space = i
+            break
+
+    print('(Depth, Branches, EBF) = ' + str(aStar(node(start, 0, space))))
 
 if __name__ == '__main__':
-    search()
+    solve()
