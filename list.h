@@ -11,17 +11,18 @@ typedef struct list{
     Cell *cell;
 }List;
 
+
+/*空リストの作成*/
+List *make_list();
+
+/*新規cellの作成*/
+Cell *make_cell(int state[SIZE], int cost);
+
+/*ソートしつつデータの挿入*/
+void insert(List *lst, Cell *cell);
+
 /*先頭要素の削除*/
-void delete_first(list_t *lst);
-
-/*ソートしながら要素を追加する。*/
-void sorted_add(list_t *lst, node_t *node);
-
-/*n番目にデータの挿入*/
-void insert(list_t *lst, int n, int state[SIZE]);
-
-/*新規nodeの作成*/
-node_t *make_node(int state[SIZE], int cost);
+void delete_first(List *lst);
 
 /*openの先頭nodeの展開、openへの追加*/
 void extract_node(list_t *lst);

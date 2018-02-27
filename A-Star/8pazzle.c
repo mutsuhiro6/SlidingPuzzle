@@ -1,80 +1,26 @@
 #include<stdio.h>
 #include<stdlib.h>
+#include "a-star.h"
+#include "list.h"
 
-#define UP    0
-#define DOWN  1
-#define LEFT  2
-#define RIGHT 3
-
-#define BLANK 0
-
-#define SIZE 9;
-
-typedef struct node{
-    int board[SIZE];
-    int cost; //親ノードからこのノードまでにかかるコスト
-}node_t;
-
-typedef struct list{
-    struct node *node;
-    struct list *next;
-}list_t;
-
-/*List API*/
-/*先頭要素の削除*/
-list_t *delete_first(list_t *lst);
-/*ソートしながら要素を追加する。*/
-list_t *sorted_add(list_t *lst, node_t *node);
-/*n番目にデータの挿入*/
-void insert(list_t *lst, int n, int board[SIZE]);
-/*nodeの作成*/
-node_t make_node(int board[SIZE], int cost);
 
 /*8 pazzle base*/
-int *move();
-int find_blank();
-void print_board();
-
-/*A* Search base*/
-list_t *delete_node();
-list_t *extract_node();
-int heuristic1();
-int heuristic2();
-int manhattan_distance();
-list_t *add_open();
+int init[SIZE] = {3, BLANK, 5, 4, 2, 6, 8, 7, 1};
+int goal[SIZE] = {1, 2, 3, 4, 5, 6, 7, 8, BLANK};
+Cell *move(int *state, int dir);
+int find_blank(int *state);
+void print_board(int *state);
 
 /* ↓8パズルの基本動作↓ */
-/*
-・盤面の表現
-0|1|2
-3|4|5
-6|7|8
-(数字は要素番号)
-このような盤面を配列board[0...9]で表す。
-タイルの左右の移動は要素番号を-1,+1で、上下の移動は、-3,+3で表せる。
-・オペレータ
-   UP:空白の下のタイルを上へ移動
- DOWN:空白の上のタイルを下へ移動
- LEFT:空白の右のタイルを左へ移動
-RIGHT:空白の左のタイルを右へ移動
-・用意すべき関数
-タイルの移動処理をする関数(move)
-(特に初期状態で)空白タイルの要素を返す関数
-例えばA*探索ならその関数
-*/
 
-int *move(int *board, int dir){
-    int blank_pos;
-    for(int i = 0; i < 9; i++){
-        if(board[i] == BLANK){
-            blank_pos  = i;
-            break;
-        }
-    }
+Cell *move(int *board, int dir){
+    int state[SIZE];
+    memcpy(state, board, SIZE);
+    int blank_pos = find_blank(state);
     if(dir == UP){
         if(!(blank_pos > 5)){
-            board[blank_pos] = board[blank_pos + 3];
-            board[blank_pos + 3] = BLANK;
+            state[blank_pos] = state[blank_pos + 3];
+            state[blank_pos + 3] = BLANK;
         }
         else{
             return NULL;
@@ -82,8 +28,8 @@ int *move(int *board, int dir){
     }
     else if(dir == DOWN){
         if(!(blank_pos < 3)){
-            board[blank_pos] = board[blank_pos - 3];
-            board[blank_pos - 3] = BLANK;
+            state[blank_pos] = state[blank_pos - 3];
+            state[blank_pos - 3] = BLANK;
         }
         else{
             return NULL;
@@ -91,8 +37,8 @@ int *move(int *board, int dir){
     }
     else if(dir == LEFT){
         if(!(blank_pos == 2 || blank_pos == 5 || blank_pos == 8)){
-            board[blank_pos] = board[blank_pos + 1];
-            board[blank_pos + 1] = BLANK;
+            state[blank_pos] = state[blank_pos + 1];
+            state[blank_pos + 1] = BLANK;
         }
         else{
             return NULL;
@@ -100,8 +46,8 @@ int *move(int *board, int dir){
     }
     else if(dir == RIGHT){
         if(!(blank_pos == 0 || blank_pos == 3 || blank_pos == 6)){
-            board[blank_pos] = board[blank_pos - 1];
-            board[blank_pos - 1] = BLANK;
+            state[blank_pos] = state[blank_pos - 1];
+            state[blank_pos - 1] = BLANK;
         }
         else{
             return NULL;
@@ -111,26 +57,26 @@ int *move(int *board, int dir){
         fprintf(stderr, "Operater Error.\n");
         exit(1);
     }
-    return board;
+    return make_cell(state, 1);
 }
 
-int find_blank(int *board){
+int find_blank(int *state){
     for(int i = 0; i < 9; i++){
-        if(board[i] == BLANK){
+        if(state[i] == BLANK){
             return i;
         }
     }
     return -1;
 }
 
-void print_board(int *board){
+void print_board(int *state){
     int i;
     for(i = 0; i < 9; i++){
         if(i == 2 || i == 5 || i == 8){
-            printf("%d\n", board[i]);
+            printf("%d\n", state[i]);
         }
         else{
-            printf("%d|", board[i]);
+            printf("%d|", state[i]);
         }
     }
     printf("\n");
@@ -139,7 +85,7 @@ void print_board(int *board){
 
 /* ↓A* Search Algorithm↓ */
 
-int heuristic1(int *board, int *goal){
+int heuristic1(int *state){
     /*
     Heuristic1
     目標状態と異なるタイルの数
@@ -147,14 +93,14 @@ int heuristic1(int *board, int *goal){
     int i;
     int h = 8; //h:heuristic function
     for(i = 0; i < 9; i++){
-        if(board[i] != BLANK && board[i] == goal[i]){
+        if(state[i] != BLANK && state[i] == goal[i]){
             h--;
         }
     }
     return h;
 }
 
-int heuristic2(int *board, int *goal){
+int heuristic2(int *state){
     /*
     Heuristic2
     目標状態からのタイルのManhattan距離の総和
@@ -163,7 +109,7 @@ int heuristic2(int *board, int *goal){
     int h = 0;
     for(i = 0; i < 9; i++){
         for(j = 0; j < 9; j++){
-            if(board[i] == goal[j]){
+            if(state[i] == goal[j]){
                 h += manhattan_distance(i,j);
             }
         }
@@ -240,131 +186,88 @@ int manhattan_distance(int i, int j){
     return(manhattan_x + manhattan_y);
 }
 
-list_t *add_open(list_t *open, node_t *node, int *goal){
-    /*
-    openのリストに要素の追加、ソートしながら。
-    ヒューリスティック関数の影響はここで追加する。
-    */
-    int p_cost, q_cost, p_next_cost;
-    int *board;
-    /*openが空だった*/
-    if(open == NULL){
-        open = (list_t *)malloc(sizeof(list_t));
-        open->node = node;
-        open->next = NULL;
-        return open;
-    }
-    /*以下リストは空でない*/
-    list_t *p;//注目するリスト要素
-    p = open;
-    list_t *q;//追加するリスト要素
-    q = (list_t *)malloc(sizeof(list_t));
-    q->node = node;
-    /*先頭要素以下であった*/
-    p_cost = p->node->cost + heuristic1(p->node->board, goal);
-    q_cost = q->node->cost + heuristic1(q->node->board, goal);
-    if(q_cost <= p_cost){
-        q->next = p;
-        return q;
-    }
-    /*挿入する隙間を見つける*/
-    while(p->next != NULL){
-        p_next_cost = p->next->node->cost + heuristic1(p->next->node->board, goal);
-        if((q_cost > p_cost) && (q_cost <= p_next_cost)){
-            list_t *r;
-            r = p->next;
-            p->next = q;
-            q->next = r;
-            return open;
-        }
-        p = p->next;
-    }
-    /*結局どの要素よりも大きかった*/
-    p->next = q;
-    q->next = NULL;
-    return open;
+List *make_list(){
+    List *lst;
+    lst = (List *)malloc(sizeof(List));
+    lst->cell = NULL;
+    return lst;
 }
 
-list_t *delete_node(list_t *open){
-    /*openの先頭要素を削除(free())*/
-    /*結局、次の要素のポインタを返す*/
-    list_t *new_top;
-    if(open->next == NULL){
-        free(open);
-        return NULL;
+Cell *make_cell(int *state, int cost){
+    Cell *cell;
+    cell = (Cell *)malloc(sizeof(Cell));
+    cell->state = (int *)malloc(SIZE * sizeof(int));
+    memcpy(cell->state, state, SIZE);
+    cell->cost = cost;
+    cell->next = NULL;
+    return cell;
+}
+
+void insert(List *lst, Cell *cell){
+    /* コストの小さい順にソートしつつリストにセルを追加する。 */
+    Cell *stock;//退避用
+    Cell *p;//注目するセル
+    /* 空リストの時、先頭に追加 */
+    if(lst->cell == NULL){
+        lst->cell = (Cell *)malloc(sizeof(Cell));
+        lst->cell->next = cell;
+        return;
+    }
+    /* cellのcost<=先頭要素のコスト */
+    else if(cell->cost + heuristic1(cell->state) <= lst->cell->next->cost + heuristic1(lst->cell->next->state)){
+        p = lst->cell->next;
+        stock = p;
+        p = cell;
+        cell->next = stock;
+        return;
+    }
+    /* 先頭要素しかなく、先頭要素のコストよりもcellのそれが大きい */
+    else if(lst->cell->next->next == NULL){
+        p->next = cell;
+        return;
     }
     else{
-        new_top = open->next;
-        free(open);
-        return new_top;
+        while(lst->cell->next->next != NULL){
+            if((lst->cell->next->cost + heuristic1(lst->cell->next->state) <= cell->cost + heuristic1(cell->state)) && (lst->cell->next->next->cost + heuristic1(lst->cell->next->state) > cell->cost + heuristic1(cell->state))){
+                p = lst->cell->next;
+                stock = p->next;
+                p->next = cell;
+                cell->next = stock;
+                return;
+            }
+            p = p->next;
+        }
+        p->next = cell;
     }
 }
 
-list_t *extract_node(list_t *open, int *goal){
-    /*
-    openの先頭要素firstの展開。
-    UP,DOWN,LEFT,RIGHTを試して、次状態のノードを作成して、add_nodeする。
-    moveがNULLを返すとそのノードは追加しない。
-    */
-    int i,j,DIR;//DIR方向用の整数
-    int *up, *down, *left, *right, *q; //board用ポインタ変数
-    list_t *first;
-    node_t *upnode, *downnode, *leftnode, *rightnode;
-    first = open;
-    q = first->node->board;
-    open = delete_node(open);
-    //for(i = 0; i < 9; i++){
-        //if(first->node->board[i] == BLANK){
-            up = move(q, UP);
-            if(up != NULL){
-                //printf("move UP\n");
-                //print_board(up);
-                upnode = (node_t *)malloc(sizeof(node_t));
-                upnode->board = up;
-                upnode->cost = first->node->cost + 1;
-                open = add_open(open, upnode, goal);
-            }
-
-            down = move(q, DOWN);
-            if(down != NULL){
-                //printf("move DOWN\n");
-                //print_board(down);
-                downnode = (node_t *)malloc(sizeof(node_t));
-                downnode->board = up;
-                downnode->cost = first->node->cost + 1;
-                open = add_open(open, downnode, goal);
-            }
-
-            left = move(q, LEFT);
-            if(left != NULL){
-                //printf("move LEFT\n");
-                //print_board(left);
-                leftnode = (node_t *)malloc(sizeof(node_t));
-                leftnode->board = up;
-                leftnode->cost = first->node->cost + 1;
-                open = add_open(open, leftnode, goal);
-            }
-
-            right = move(q, RIGHT);
-            if(right != NULL){
-                //printf("move RIGHT\n");
-                //print_board(right);
-                rightnode = (node_t *)malloc(sizeof(node_t));
-                rightnode->board = up;
-                rightnode->cost = first->node->cost + 1;
-                open = add_open(open, rightnode, goal);
-            }
-        //}
-    //}
-    return open;
+void delete_first(List *lst){
+    /* リストは空でないと仮定する。 */
+    Cell *stock;
+    Cell *f;//先頭のセル
+    f = lst->cell->next;
+    stock = f;
+    f = f->next;
+    free(stock);
 }
 
-int compare_board(int *board, int *goal){
+void extract_node(List *lst){
+    /* リストは空でないと仮定する */
+    int dir;
+    Cell *f;//先頭セル
+    f = lst->cell->next;
+    delete_first(lst);
+    for(dir = UP; dir <= RIGHT; dir++){
+        insert(lst, move(f->state, dir));
+    }
+}
+
+int compare_board(int *state, int *goal){
     for(int i = 0; i < 9; i++){
-        if(board[i] != goal[i]){
+        if(state[i] != goal[i]){
             return 0;
         }
-        else if(i == 8 && board[i] == goal[i]){
+        else if(i == 8 && state[i] == goal[i]){
             return 1;
         }
     }
@@ -373,38 +276,23 @@ int compare_board(int *board, int *goal){
 
 /* ↑A* Search Algorithm↑ */
 int main(void){
-    int init_board[9] = {3, BLANK, 5, 4, 2, 6, 8, 7, 1};
-    int goal_board[9] = {1, 2, 3, 4, 5, 6, 7, 8, BLANK};
-    node_t *init_node;
-    list_t *open, *open2;
-    int *board, *goal;
-    board = init_board;
-    goal = goal_board;
-    init_node = (node_t *)malloc(sizeof(node_t));
-    if(init_node == NULL){
-        fprintf(stderr, "malloc error:(init_node)\n");
-        return 1;
-    }
-    init_node->board = board;
-    init_node->cost = 0;
-    open = (list_t *)malloc(sizeof(list_t));
-    if(open == NULL){
-        fprintf(stderr, "malloc error:(open)\n");
-        return 1;
-    }
-    open->node = init_node;
-    open->next = NULL;
+    Cell *init_node;
+    List *open;
+    int *initial_state = init;
+    init_node = make_cell(initial_state, 0);
+    open = make_list();
+    insert(open, init_node);
     while(1){
-        print_board(open->node->board);
+        print_board(open->cell->next->state);
         if(open == NULL){
             fprintf(stderr, "Search Error.\n");
             return 1;
         }
-        if(compare_board(open->node->board, goal)){
+        if(compare_board(open->cell->next->state, goal)){
             fprintf(stdout, "Search Successed.\n");
             break;
         }
-        open = extract_node(open, goal);
+        extract_node(open);
     }
     return 0;
 }
